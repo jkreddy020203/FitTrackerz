@@ -1,6 +1,7 @@
 defmodule FitTrackerzWeb.GymOperator.MembersLive do
   use FitTrackerzWeb, :live_view
 
+  alias FitTrackerz.Accounts.SystemActor
   alias FitTrackerzWeb.AshErrorHelpers
 
   @impl true
@@ -443,6 +444,7 @@ defmodule FitTrackerzWeb.GymOperator.MembersLive do
             gym_id: gym.id,
             metadata: %{"plan_id" => plan.id, "member_id" => member_id}
           },
+          actor: SystemActor.system_actor(),
           authorize?: false
         )
 

@@ -9,6 +9,7 @@ defmodule FitTrackerz.Workers.PaymentReminderWorker do
   import Ecto.Query
 
   alias FitTrackerz.Repo
+  alias FitTrackerz.Accounts.SystemActor
   alias FitTrackerz.Notifications.Notification
 
   require Logger
@@ -80,6 +81,7 @@ defmodule FitTrackerz.Workers.PaymentReminderWorker do
           gym_id: sub.gym_id,
           metadata: %{"subscription_id" => sub.subscription_id}
         },
+        actor: SystemActor.system_actor(),
         authorize?: false
       )
 
@@ -97,6 +99,7 @@ defmodule FitTrackerz.Workers.PaymentReminderWorker do
             "member_user_id" => sub.member_user_id
           }
         },
+        actor: SystemActor.system_actor(),
         authorize?: false
       )
 

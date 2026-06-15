@@ -10,6 +10,7 @@ defmodule FitTrackerz.Workers.StreakCalculationWorker do
   import Ecto.Query
 
   alias FitTrackerz.Repo
+  alias FitTrackerz.Accounts.SystemActor
   alias FitTrackerz.Gamification.Streak
   alias FitTrackerz.Gamification.StreakMilestone
   alias FitTrackerz.Notifications.Notification
@@ -111,6 +112,7 @@ defmodule FitTrackerz.Workers.StreakCalculationWorker do
       upsert?: true,
       upsert_identity: :unique_member_streak_type,
       upsert_fields: [:current_streak, :longest_streak, :last_activity_date, :updated_at],
+      actor: SystemActor.system_actor(),
       authorize?: false
     )
   end
@@ -135,6 +137,7 @@ defmodule FitTrackerz.Workers.StreakCalculationWorker do
             milestone_days: milestone,
             achieved_at: DateTime.utc_now()
           },
+          actor: SystemActor.system_actor(),
           authorize?: false
         )
 
@@ -154,6 +157,7 @@ defmodule FitTrackerz.Workers.StreakCalculationWorker do
               "current_streak" => to_string(current_streak)
             }
           },
+          actor: SystemActor.system_actor(),
           authorize?: false
         )
 

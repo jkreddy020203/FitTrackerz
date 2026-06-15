@@ -10,6 +10,7 @@ defmodule FitTrackerz.Workers.SubscriptionExpiryWorker do
   import Ecto.Query
 
   alias FitTrackerz.Repo
+  alias FitTrackerz.Accounts.SystemActor
   alias FitTrackerz.Billing.MemberSubscription
   alias FitTrackerz.Notifications.Notification
 
@@ -94,6 +95,7 @@ defmodule FitTrackerz.Workers.SubscriptionExpiryWorker do
             "days_remaining" => days
           }
         },
+        actor: SystemActor.system_actor(),
         authorize?: false
       )
 

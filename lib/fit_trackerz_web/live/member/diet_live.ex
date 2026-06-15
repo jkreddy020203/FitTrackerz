@@ -22,6 +22,7 @@ defmodule FitTrackerzWeb.Member.DietLive do
            no_gym: true,
            plan_type: :general,
            show_form: false,
+           editing_id: nil,
            form: nil,
            meals: []
          )}
@@ -36,12 +37,6 @@ defmodule FitTrackerzWeb.Member.DietLive do
 
         plan_type = determine_plan_type(mids, actor)
 
-        form =
-          to_form(
-            %{"name" => "", "calorie_target" => "", "dietary_type" => "", "gym_id" => ""},
-            as: "diet"
-          )
-
         {:ok,
          assign(socket,
            page_title: "My Diet Plan",
@@ -50,7 +45,8 @@ defmodule FitTrackerzWeb.Member.DietLive do
            no_gym: false,
            plan_type: plan_type,
            show_form: false,
-           form: form,
+           editing_id: nil,
+           form: blank_form(),
            meals: [blank_meal(1)]
          )}
     end
@@ -65,6 +61,13 @@ defmodule FitTrackerzWeb.Member.DietLive do
     if active_sub && active_sub.subscription_plan,
       do: active_sub.subscription_plan.plan_type,
       else: :general
+  end
+
+  defp blank_form do
+    to_form(
+      %{"name" => "", "calorie_target" => "", "dietary_type" => "", "gym_id" => ""},
+      as: "diet"
+    )
   end
 
   defp blank_meal(order) do
@@ -82,7 +85,46 @@ defmodule FitTrackerzWeb.Member.DietLive do
 
   @impl true
   def handle_event("toggle_form", _params, socket) do
-    {:noreply, assign(socket, show_form: !socket.assigns.show_form)}
+    if socket.assigns.show_form do
+      {:noreply, assign(socket, show_form: false, editing_id: nil)}
+    else
+      {:noreply,
+       assign(socket,
+         show_form: true,
+         editing_id: nil,
+         form: blank_form(),
+         meals: [blank_meal(1)]
+       )}
+    end
+  end
+
+  def handle_event("edit_diet", %{"id" => id}, socket) do
+    case Enum.find(socket.assigns.diet_plans, &(&1.id == id)) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Diet plan not found.")}
+
+      plan ->
+        form =
+          to_form(
+            %{
+              "name" => plan.name || "",
+              "calorie_target" => num_to_string(plan.calorie_target),
+              "dietary_type" => num_to_string(plan.dietary_type),
+              "gym_id" => plan.gym_id || ""
+            },
+            as: "diet"
+          )
+
+        meals =
+          (plan.meals || [])
+          |> Enum.sort_by(& &1.order)
+          |> Enum.with_index(1)
+          |> Enum.map(fn {meal, order} -> meal_to_form(meal, order) end)
+
+        meals = if meals == [], do: [blank_meal(1)], else: meals
+
+        {:noreply, assign(socket, show_form: true, editing_id: id, form: form, meals: meals)}
+    end
   end
 
   def handle_event("validate", %{"diet" => params}, socket) do
@@ -189,38 +231,83 @@ defmodule FitTrackerzWeb.Member.DietLive do
     gym_id = if params["gym_id"] != "", do: params["gym_id"], else: membership.gym_id
 
     actor = socket.assigns.current_user
+    mids = Enum.map(memberships, & &1.id)
 
-    case FitTrackerz.Training.create_diet(%{
-      name: params["name"],
-      calorie_target: calorie_target,
-      dietary_type: dietary_type,
-      meals: meals,
-      member_id: membership.id,
-      gym_id: gym_id
-    }, actor: actor) do
+    result =
+      case socket.assigns.editing_id do
+        nil ->
+          FitTrackerz.Training.create_diet(%{
+            name: params["name"],
+            calorie_target: calorie_target,
+            dietary_type: dietary_type,
+            meals: meals,
+            member_id: membership.id,
+            gym_id: gym_id
+          }, actor: actor)
+
+        editing_id ->
+          case Enum.find(socket.assigns.diet_plans, &(&1.id == editing_id)) do
+            nil -> {:error, :not_found}
+            diet ->
+              FitTrackerz.Training.update_diet(diet, %{
+                name: params["name"],
+                calorie_target: calorie_target,
+                dietary_type: dietary_type,
+                meals: meals
+              }, actor: actor)
+          end
+      end
+
+    case result do
       {:ok, _plan} ->
-        mids = Enum.map(memberships, & &1.id)
+        diet_plans = load_diet_plans(mids, actor)
 
-        diet_plans = case FitTrackerz.Training.list_diets_by_member(mids, actor: actor, load: [:gym]) do
-          {:ok, plans} -> plans
-          _ -> []
-        end
-
-        form =
-          to_form(
-            %{"name" => "", "calorie_target" => "", "dietary_type" => "", "gym_id" => ""},
-            as: "diet"
-          )
+        flash_msg =
+          if socket.assigns.editing_id,
+            do: "Diet plan updated successfully.",
+            else: "Diet plan created successfully."
 
         {:noreply,
          socket
-         |> assign(diet_plans: diet_plans, form: form, show_form: false, meals: [blank_meal(1)])
-         |> put_flash(:info, "Diet plan created successfully.")}
+         |> assign(
+           diet_plans: diet_plans,
+           form: blank_form(),
+           show_form: false,
+           editing_id: nil,
+           meals: [blank_meal(1)]
+         )
+         |> put_flash(:info, flash_msg)}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Diet plan not found.")}
 
       {:error, error} ->
         {:noreply, put_flash(socket, :error, AshErrorHelpers.user_friendly_message(error))}
     end
   end
+
+  defp load_diet_plans(mids, actor) do
+    case FitTrackerz.Training.list_diets_by_member(mids, actor: actor, load: [:gym]) do
+      {:ok, plans} -> plans
+      _ -> []
+    end
+  end
+
+  defp meal_to_form(meal, order) do
+    %{
+      "name" => meal.name || "",
+      "time_of_day" => meal.time_of_day || "",
+      "items" => Enum.join(meal.items || [], ", "),
+      "calories" => num_to_string(meal.calories),
+      "protein" => num_to_string(meal.protein),
+      "carbs" => num_to_string(meal.carbs),
+      "fat" => num_to_string(meal.fat),
+      "order" => order
+    }
+  end
+
+  defp num_to_string(nil), do: ""
+  defp num_to_string(val), do: to_string(val)
 
   defp parse_index(val) when is_binary(val) do
     case Integer.parse(val) do
@@ -306,7 +393,7 @@ defmodule FitTrackerzWeb.Member.DietLive do
         <% else %>
           <%!-- Create Form (General only) --%>
           <%= if @plan_type == :general and @show_form do %>
-            <.card title="New Diet Plan" id="diet-form-card">
+            <.card title={if @editing_id, do: "Edit Diet Plan", else: "New Diet Plan"} id="diet-form-card">
               <.form
                 for={@form}
                 id="diet-form"
@@ -437,7 +524,9 @@ defmodule FitTrackerzWeb.Member.DietLive do
 
                 <div class="flex justify-end gap-2 pt-2">
                   <.button variant="ghost" size="sm" type="button" phx-click="toggle_form" id="cancel-diet-btn">Cancel</.button>
-                  <.button variant="primary" size="sm" icon="hero-check" type="submit" id="submit-diet-btn">Create Plan</.button>
+                  <.button variant="primary" size="sm" icon="hero-check" type="submit" id="submit-diet-btn">
+                    {if @editing_id, do: "Update Plan", else: "Create Plan"}
+                  </.button>
                 </div>
               </.form>
             </.card>
@@ -483,6 +572,15 @@ defmodule FitTrackerzWeb.Member.DietLive do
                         </.badge>
                       <% end %>
                       <%= if @plan_type == :general do %>
+                        <.button
+                          variant="ghost"
+                          size="sm"
+                          phx-click="edit_diet"
+                          phx-value-id={plan.id}
+                          id={"edit-diet-#{plan.id}"}
+                        >
+                          <.icon name="hero-pencil-square-mini" class="size-4" />
+                        </.button>
                         <.button
                           variant="ghost"
                           size="sm"

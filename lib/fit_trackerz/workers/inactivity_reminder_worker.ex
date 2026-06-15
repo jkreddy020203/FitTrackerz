@@ -9,6 +9,7 @@ defmodule FitTrackerz.Workers.InactivityReminderWorker do
   import Ecto.Query
 
   alias FitTrackerz.Repo
+  alias FitTrackerz.Accounts.SystemActor
   alias FitTrackerz.Notifications.Notification
 
   @inactivity_days 5
@@ -91,6 +92,7 @@ defmodule FitTrackerz.Workers.InactivityReminderWorker do
         gym_id: member.gym_id,
         metadata: %{}
       },
+      actor: SystemActor.system_actor(),
       authorize?: false
     )
 

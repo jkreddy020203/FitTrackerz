@@ -46,7 +46,18 @@
       "Bash(mix:*)",
       "WebFetch(domain:www.rockstargames.com)",
       "Bash(xargs -I {} basename {})",
-      "mcp__tidewave__execute_sql_query"
+      "mcp__tidewave__execute_sql_query",
+      "Bash(npx uipro *)",
+      "WebFetch(domain:ui-ux-pro-max-skill.nextlevelbuilder.io)",
+      "Bash(curl -sL https://ui-ux-pro-max-skill.nextlevelbuilder.io/)",
+      "Bash(curl -sL https://ui-ux-pro-max-skill.nextlevelbuilder.io/assets/index-DybJ-FQd.js -o /tmp/uipro.js)",
+      "Read(//tmp/**)",
+      "Bash(gh repo *)",
+      "Bash(npx *)",
+      "WebFetch(domain:21st.dev)",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "PowerShell(git status --short; \"--- remotes ---\"; git remote -v; \"--- upstream tracking ---\"; git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>$null)",
+      "PowerShell(git diff --stat; \"===== non-diet diffs =====\"; git --no-pager diff -- lib/fit_trackerz/workers/ lib/fit_trackerz/gym/ lib/fit_trackerz_web/live/gym_operator/members_live.ex .claude/settings.local.json)"
     ]
   }
 }

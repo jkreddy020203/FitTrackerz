@@ -42,6 +42,7 @@ defmodule FitTrackerz.Gym.Changes.NotifyTrainerOnAssignmentRequest do
               "trainer_id" => request.trainer_id
             }
           },
+          actor: system_actor,
           authorize?: false
         )
 
